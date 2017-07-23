@@ -64,15 +64,6 @@ playGame:
 	beq $t0, 1, playerXMove		# if the value is odd, it's player x's turn
 	j playerOMove			# otherwise, it's player o's turn
 	
-tieGame:
-	la $a0, tieMessage
-	li $v0, 4
-	syscall
-	
-	li $v0, 10
-	syscall
-	
-	
 playerXMove:
 	# Print player prompt
 	la $a0, playerXPrompt
@@ -85,6 +76,9 @@ playerXMove:
 	move $a0, $v0 			# Move user input into argument regiester
 	jal checkInput
 	
+	# Once a valid move has been made, decrement turn counter
+	subi $s1, $s1, 1
+	
 	# Store the player input in the appropriate position in the array
 	lb $t0, xMove
 	subi $t1, $v0, 1		# subtract 1 from the input number to convert to 0-based array index
@@ -94,11 +88,9 @@ playerXMove:
 	# print the updated game board
 	jal printCurrentBoard
 	
-	# TODO: check for win
-	
-	# Decrement turn counter and go again
-	subi $s1, $s1, 1
-	j playGame
+	# check for win; expects the appropriate player win message to be in $a0
+	la $a0, playerXWonMessage
+	j checkWin
 
 playerOMove:
 	# Print player prompt
@@ -112,6 +104,9 @@ playerOMove:
 	move $a0, $v0 			# Move user input into argument regiester
 	jal checkInput
 	
+	# Once a valid move has been made, decrement turn counter
+	subi $s1, $s1, 1
+	
 	# Store the player input in the appropriate position in the array
 	lb $t0, oMove
 	subi $t1, $v0, 1		# subtract 1 from the input number to convert to 0-based array index
@@ -121,11 +116,9 @@ playerOMove:
 	# print the updated game board
 	jal printCurrentBoard
 	
-	# TODO: check for win
-	
-	# Decrement turn counter and go again
-	subi $s1, $s1, 1
-	j playGame
+	# check for win; expects the appropriate player win message to be in $a0
+	la $a0, playerOWonMessage
+	j checkWin
 
 checkInput:
 	# TODO:
@@ -134,7 +127,6 @@ checkInput:
 	
 	# Otherwise, jump back to playGame
 	jr $ra
-
 
 printCurrentBoard:
 	# save the return address to the stack so it can be restored it later
@@ -205,12 +197,84 @@ printPositionRow:
 	jr $ra
 
 checkWin:
-	# TODO:
-	# check row 1
-	# check row 2
-	# check row 3
-	# check column 1
-	# check column 2
-	# check column 3
-	# check diagonal 1 (top left to bottom right)
-	# check diagonal 2 (bottom left to top right)
+	# requires that the appropriate player win message address is loaded in to $a0
+
+	# -- check rows; increment amount = 1 --
+	li $a2, 1
+	# row 1
+	la $a1, ($s0)			# address of the first item of the firts row
+	jal checkUnit
+	# row 2
+	la $a1, 3($s0)			# address of the first item of the second row
+	jal checkUnit
+	# row 3
+	la $a1, 6($s0)			# address of the first item of the third row
+	jal checkUnit
+
+	# -- check columns; increment amount = 3 --
+	li $a2, 3
+	# column 1
+	la $a1, ($s0)			# address of the first item of the first column
+	jal checkUnit
+	# column 2
+	la $a1, 1($s0)			# address of the first item of the second column
+	jal checkUnit
+	# column 3
+	la $a1, 2($s0)			# address of the first item of the third column
+	jal checkUnit
+
+	# top left to bottom right diagonal - indices 0, 4, 8
+	la $a1, ($s0)
+	li $a2, 4
+	jal checkUnit
+	
+	# top right to bottom left diagonal - indices 2, 4, 6
+	la $a1, 2($s0)
+	li $a2, 2
+	jal checkUnit
+	
+	# If this is reached, no player has won yet; continue the game
+	j playGame
+	
+checkUnit:
+	# arguments:
+	# 	- $a0: the message to print if there is a winner
+	#	- $a1: the beginning of the column to check
+	#	- $a2: the offset between indices that should be checked
+	
+	move $t0, $a1			# store the address of beginning of the row so $t0 can act as a counter through therow
+	lb $t1, ($t0)			# load the byte at the current index
+	
+	lb $t2, space
+	beq $t1, $t2, return		# if the byte is a space, it's not a win - continue the game
+	
+	add $t0, $t0, $a2		# increment $t0 to the address of the next array index to check
+	lb $t2, ($t0)			# load the second byte to check
+	bne $t1, $t2, return		# if the two bytes don't match, no win; the game continues
+	
+	add $t0, $t0, $a2		# increment $t0 to the address of the next array to check
+	lb $t2, ($t0)			# load the third byte to check
+	bne $t1, $t2, return		# if the bytes don't match, no win; the game continues
+	
+	# if we make it here, the row is the same and a player won
+	# the appropriate player won message to print is already in a0
+	j printEndMessage
+
+return:
+	jr $ra
+
+printEndMessage:
+	# arguments:
+	# 	- $a0: the message to print if there is a winner
+	
+	# print the given game message (tie, x won, or o won)
+	li $v0, 4
+	syscall
+	
+	# exit the game
+	li $v0, 10
+	syscall
+
+tieGame:
+	la $a0, tieMessage
+	j printEndMessage
