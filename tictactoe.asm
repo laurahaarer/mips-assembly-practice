@@ -1,7 +1,6 @@
 .data
 intro: .asciiz "*** TIC-TAC-TOE ***\n"
 positionInstructions: .asciiz "Make a move by choosing a number representing a new position\n"
-numberBoard: .asciiz " 1 | 2 | 3 \n---+---+---\n 4 | 5 | 6 \n---+---+---\n 7 | 8 | 9 \n"
 invalidNumberMessage: .asciiz "[invalid input] - number entered must be between 1 and 9 (inclusive)\n"
 positionTakenMessage: .asciiz "[invalid input] - that position is already taken\n"
 
@@ -10,7 +9,7 @@ columnDivider: .asciiz " | "
 space: .byte ' '
 newline: .asciiz "\n"
 
-moves: .word 0:9 # hold a 9-character array of bytes representing players' positions
+moves: .byte '1', '2', '3', '4', '5', '6', '7', '8', '9' # a 9-character array of bytes representing players' positions
 
 playerXPrompt: .asciiz "Player X move: "
 playerOPrompt: .asciiz "Player O move: "
@@ -32,14 +31,13 @@ main:
 	la $a0, positionInstructions
 	li $v0, 4
 	syscall
-	la $a0, numberBoard
-	li $v0, 4
-	syscall
 	
 	la $s0, moves       		# load the address of the beginning of the moves array
 	li $s1, 9			# track the current turn
+
+	jal printCurrentBoard		# print the board with numbers corresponding to positions
 	
-	jal initEmptyMovesArray
+	jal initEmptyMovesArray		# clear out the board
 	j playGame
 	
 initEmptyMovesArray:
@@ -122,9 +120,6 @@ playerOMove:
 	j checkWin
 
 checkInput:
-	# TODO:
-	# Verify that the user input is a number
-	
 	# Verify that the user input is a number in 1-9
 	blt $a0, 1, invalidNumber
 	bgt $a0, 9, invalidNumber
@@ -181,7 +176,8 @@ printCurrentBoard:
 	jr $ra
 	
 printPositionRow:
-	# note: $a0 is the address of the first index of the row to print
+	# $a0: the address of the first index of the row to print
+
 	move $t0, $a0			# move the contents of $a0 to a temporary register so a0 can be used for syscalls
 	
 	lb $a0, space
@@ -222,7 +218,7 @@ printPositionRow:
 	jr $ra
 
 checkWin:
-	# requires that the appropriate player win message address is loaded in to $a0
+	# $a0: the address of the current player win message to print if there is a win
 
 	# -- check rows; increment amount = 1 --
 	li $a2, 1
@@ -262,10 +258,9 @@ checkWin:
 	j playGame
 	
 checkUnit:
-	# arguments:
-	# 	- $a0: the message to print if there is a winner
-	#	- $a1: the beginning of the column to check
-	#	- $a2: the offset between indices that should be checked
+	# $a0: the message to print if there is a winner
+	# $a1: the beginning of the column to check
+	# $a2: the offset between indices that should be checked
 	
 	move $t0, $a1			# store the address of beginning of the row so $t0 can act as a counter through therow
 	lb $t1, ($t0)			# load the byte at the current index
@@ -289,8 +284,7 @@ return:
 	jr $ra
 
 printEndMessage:
-	# arguments:
-	# 	- $a0: the message to print if there is a winner
+	# $a0: the message to print if there is a winner
 	
 	# print the given game message (tie, x won, or o won)
 	li $v0, 4
