@@ -2,6 +2,8 @@
 intro: .asciiz "*** TIC-TAC-TOE ***\n"
 positionInstructions: .asciiz "Make a move by choosing a number representing a new position\n"
 numberBoard: .asciiz " 1 | 2 | 3 \n---+---+---\n 4 | 5 | 6 \n---+---+---\n 7 | 8 | 9 \n"
+invalidNumberMessage: .asciiz "[invalid input] - number entered must be between 1 and 9 (inclusive)\n"
+positionTakenMessage: .asciiz "[invalid input] - that position is already taken\n"
 
 rowDivider: .asciiz "---+---+---\n"
 columnDivider: .asciiz " | "
@@ -55,7 +57,6 @@ initEmptyMovesArray:
 	
 	endArrayLoop:
 	jr $ra
-	
 	
 playGame:
 	ble $s1, $zero, tieGame
@@ -122,11 +123,35 @@ playerOMove:
 
 checkInput:
 	# TODO:
-	# Verify that the user input is a value in 1-9
-	# Verify that that spot in the array is not
+	# Verify that the user input is a number
 	
-	# Otherwise, jump back to playGame
+	# Verify that the user input is a number in 1-9
+	blt $a0, 1, invalidNumber
+	bgt $a0, 9, invalidNumber
+	
+	# Verify that that spot in the array is not
+	subi $t0, $a0, 1		# subtract 1 from the user input to get the zero-based index
+	add $t0, $t0, $s0		# add the user input to the beginning of the array to get the correct address offset
+	lb $t0, ($t0)			# load the byte at the address of the chosen array position
+	lb $t1, space			# load the space byte into $t1
+	bne $t0, $t1, positionTaken	# check if the byte in the chosen array position is a space - if not, the position is taken
+	
+	# Otherwise, jump back to current position
 	jr $ra
+
+invalidNumber:
+	# Print the invalid input number message and jump to ask for user input again
+	la $a0, invalidNumberMessage
+	li $v0, 4
+	syscall
+	j playGame
+	
+positionTaken:
+	# Print the spot taken message and jump to ask for user input again
+	la $a0, positionTakenMessage
+	li $v0, 4
+	syscall
+	j playGame
 
 printCurrentBoard:
 	# save the return address to the stack so it can be restored it later
